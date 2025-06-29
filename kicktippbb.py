@@ -7,7 +7,7 @@ Unless specified by parameter it places the bets on all prediction games of the 
 Usage:
     kicktippbb.py [ --get-login-token ]
     kicktippbb.py [ --list-predictors ]
-    kicktippbb.py [--use-login-token <token> ] [--dry-run] [--override-bets] [--deadline <duration>] [--predictor <value>] [--matchday <value>] [COMMUNITY]...
+    kicktippbb.py [--use-login-token <token> ] [--dry-run] [--override-bets] [--deadline <duration>] [--predictor <value>] [--matchday <value>] [--csv-file <file>] [COMMUNITY]...
 
 Options:
     COMMUNITY                   Name of the prediction game community to place bets on,
@@ -23,7 +23,8 @@ Options:
     --list-predictors           Display a list of predictors available to be used with '--predictor' option
     --predictor <value>         A specific predictor name to be used during calculation
     --dry-run                   Dont place any bet just print out predicitons
-    --matchday <value>          Choose a specific matchday in the range of 1 to 34 to place bets on                                
+    --matchday <value>          Choose a specific matchday in the range of 1 to 34 to place bets on
+    --csv-file <file>           Load predictions from CSV file instead of using predictor algorithms                                
 """
 
 import sys
@@ -31,6 +32,7 @@ import datetime
 import getpass
 import re
 import os
+import csv
 
 from docopt import docopt
 from robobrowser import RoboBrowser
@@ -222,10 +224,21 @@ def validate_arguments(arguments):
         if not re.match(DEADLINE_REGEX, deadline_value):
             exit("Invalid deadline value ({}), use <Number><Unit>, Unit=[m,h,d]".format(
                 deadline_value))
+    
+    if arguments['--csv-file']:
+        csv_file = arguments['--csv-file']
+        if not os.path.exists(csv_file):
+            exit("CSV file not found: {}".format(csv_file))
 
 
-def choose_predictor(predictor_param, predictors):
-    if(predictor_param):
+def choose_predictor(predictor_param, predictors, csv_file=None):
+    if csv_file:
+        # Import and use CSV predictor
+        from predictors.csvpredictor import CSVPredictor
+        predictor = CSVPredictor(csv_file)
+        print("Using CSV predictor with file: {}".format(csv_file))
+        return predictor
+    elif predictor_param:
         if(predictor_param in predictors):
             predictor = predictors[predictor_param]()
         else:
@@ -274,7 +287,8 @@ def main(arguments):
 
     # Which prediction method is used
     predictor_param = arguments['--predictor'] if '--predictor' in arguments else None
-    predictor = choose_predictor(predictor_param, predictors_)
+    csv_file = arguments['--csv-file'] if '--csv-file' in arguments else None
+    predictor = choose_predictor(predictor_param, predictors_, csv_file)
 
     # Place bets
     place_bets(browser, communities, predictor,

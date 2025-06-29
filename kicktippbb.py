@@ -14,8 +14,9 @@ Options:
                                 one or more names can be specified.
                                 If no community name is given all available communities will be considered.
     --get-login-token           Just login and print the login token string
-                                for later use with '--use-login-token' option
+                                for later use with '--use-login-token' option or saving to .env file
     --use-login-token <token>   Perform bets without interactive login, use login token instead.
+                                If not provided, will try to load KICKTIPP_LOGIN_TOKEN from .env file.
     --override-bets             Override already placed bets.
     --deadline <duration>       Only place bets on matches that start in <duration> from now.
                                 The duration format is <number><unit[m,h,d]>, e.g. 10m,5h or 1d
@@ -29,9 +30,11 @@ import sys
 import datetime
 import getpass
 import re
+import os
 
 from docopt import docopt
 from robobrowser import RoboBrowser
+from dotenv import load_dotenv
 
 import predictors.base
 from helper.deadline import is_before_dealine, timedelta_tostring
@@ -41,6 +44,12 @@ URL_BASE = 'http://www.kicktipp.de'
 URL_LOGIN = URL_BASE + '/info/profil/login'
 
 DEADLINE_REGEX = re.compile('([1-9][0-9]*)(m|h|d)')
+
+
+def load_token_from_env():
+    """Load login token from .env file if available"""
+    load_dotenv()
+    return os.getenv('KICKTIPP_LOGIN_TOKEN')
 
 
 def login(browser: RoboBrowser):
@@ -245,11 +254,14 @@ def main(arguments):
         [print(key) for key in predictors_.keys()]
         exit(0)
 
-    # Use login token pass by argument or let the caller log in right here
+    # Use login token pass by argument, from .env file, or let the caller log in right here
     if arguments['--use-login-token']:
         token = arguments['--use-login-token']
     else:
-        token = login(browser)
+        # Try to load token from .env file first
+        token = load_token_from_env()
+        if not token:
+            token = login(browser)
 
     communities = arguments['COMMUNITY']
     # Just use the token for all interactions with the website

@@ -110,20 +110,36 @@ def parse_match_rows(browser: RoboBrowser, community, matchday = None):
     browser.open(get_tippabgabe_url(community, matchday))
     
     content = get_kicktipp_content(browser)
+    if not content:
+        print("Error: No kicktipp content found on page")
+        sys.exit()
+    
     rows = get_table_rows(content)
+    if not rows:
+        print("Error: No table rows found")
+        sys.exit()
 
     matchtuple = list()
     lastmatch = None
-    for row in rows:
+    for i, row in enumerate(rows):
+        if len(row) < 5:
+            continue
+            
         heimtipp = row[3].find(
             'input', id=lambda x: x and x.endswith('_heimTipp'))
         gasttipp = row[3].find(
             'input', id=lambda x: x and x.endswith('_gastTipp'))
         try:
-            odds=[odd.replace(" ","") for odd in row[4].get_text().split("/")]
+            odds_text = row[4].get_text()
+            # Remove "Quote:" prefix if present and clean up the text
+            odds_text = odds_text.replace("Quote:", "").strip()
+            odds=[odd.strip().replace(" ","") for odd in odds_text.split("/")]
+            if len(odds) != 3:
+                continue
             match = Match(row[1].get_text(), row[2].get_text(), row[0].get_text(
             ), odds[0], odds[1], odds[2])
-        except:
+        except Exception as e:
+            print(f"Error processing match data: {e}")
             print("Error: Not enough data, maybe there are no rates yet.")
             sys.exit()
         if not match.match_date:

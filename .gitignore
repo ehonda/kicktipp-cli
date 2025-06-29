@@ -130,3 +130,6 @@ dmypy.json
 
 #VSCode
 .vscode/
+
+# Test data - exclude from commits
+test_data/
